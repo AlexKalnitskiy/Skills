@@ -17,13 +17,13 @@ extensions/
 # Chats (personal data)
 chats/
 
-# Project-specific data
-projects/*/mcp-cache.json
-projects/*/worker.log
-projects/*/agent-transcripts/
-projects/*/terminals/
-projects/*/mcps/
+# Excluded directories
+skills-cursor/
+plans/
+projects/
 
-# Temporary files
-*.tmp
-*.temp
+# JSON configs from root directory
+argv.json
+cli-config.json
+mcp.json
+unified_repo_list.json
