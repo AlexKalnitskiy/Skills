@@ -1,24 +1,76 @@
 ---
 name: integration-testing-writing
-description: Пишет интеграционные тесты для .NET приложений с использованием Testcontainers, WireMock и FluentAssertions. Используется когда разработчик просит написать интеграционные тесты. Настраивает тестконтейнеры для Kafka, Redis, Cassandra, S3 (MinIO), SQL Database, мокирует HTTP-сервисы через WireMock, создает WebApplicationFactory для полных интеграционных тестов.
+description: Пишет интеграционные тесты для .NET приложений с использованием Testcontainers, WireMock и FluentAssertions. ОБЯЗАТЕЛЬНО использовать этот скилл когда пользователь просит написать интеграционный тест, integration test, интеграционное тестирование, тест с контейнерами, тест с Kafka/Redis/Cassandra, тест с WireMock, WebApplicationFactory тест. Настраивает тестконтейнеры для Kafka, Redis, Cassandra, S3 (MinIO), SQL Database, мокирует HTTP-сервисы через WireMock, создает WebApplicationFactory для полных интеграционных тестов.
 ---
 
 # Написание интеграционных тестов
+
+## ⚠️ КРИТИЧЕСКИ ВАЖНЫЕ ПРАВИЛА
+
+### Правило 1: ОБЯЗАТЕЛЬНОЕ составление плана ПЕРЕД написанием кода
+
+**ПЕРЕД ЛЮБЫМ НАПИСАНИЕМ КОДА ТЫ ДОЛЖЕН:**
+
+1. **Создать todo list** используя инструмент `todo_write` с задачами для:
+   - Анализа кода, который нужно протестировать
+   - Определения типа теста (REST Controller / BackgroundTask / KafkaConsumerHost)
+   - Составления плана теста
+   - Реализации инфраструктуры
+   - Написания теста
+
+2. **Составить детальный план теста** и представить его пользователю в виде структурированного списка:
+   - Что именно в приложении тестируется (конкретный класс/метод/эндпоинт)
+   - Общий сценарий теста по пунктам (Arrange → Act → Assert)
+   - Как ты будешь отправлять входные данные (HTTP-запросы к API / продюсинг в Kafka топик / другой способ)
+   - Какие результаты ожидаются и как ты будешь их проверять (выходные топики / БД / HTTP ответы)
+   - Какие именно зависимости из конфига appsettings ты будешь заменять тестконтейнерами или WireMock сервером
+
+3. **Дождаться явного подтверждения плана от пользователя**
+
+**ЗАПРЕЩЕНО начинать писать код до подтверждения плана!**
+
+### Правило 2: ЗАПРЕТ на использование IServiceProvider
+
+**СТРОГО ЗАПРЕЩЕНО** использовать `IServiceProvider`, `GetRequiredService`, `GetService` или любые другие способы получения сервисов из DI контейнера!
+
+```csharp
+// ❌❌❌ АБСОЛЮТНО НЕПРАВИЛЬНО - ЗАПРЕЩЕНО!
+var processor = _app.Services.GetRequiredService<ICustomerDataProcessor>();
+await processor.ProcessAsync(...);
+
+var consumer = _app.Services.GetRequiredService<IKafkaConsumer>();
+await consumer.ConsumeAsync(...);
+
+var repository = _app.Services.GetRequiredService<IRepository>();
+var data = await repository.GetAsync(...);
+```
+
+**Весь тест - это проверка публичного API приложения. Приложение работает как черный ящик.**
+
+✅ **ПРАВИЛЬНЫЙ подход:**
+- Для REST API: делай HTTP-запросы через `HttpClient` из `WebApplicationFactory`
+- Для Kafka консюмеров: продюсь сообщения в входной топик, дождись обработки, проверь результаты в выходных топиках или БД
+- Для BackgroundTask: запусти задачу через публичный API (если есть) или через Kafka/другой входной канал
+
+**Если ты видишь в коде использование `_app.Services` или `GetRequiredService` - это ОШИБКА! Исправь немедленно!**
 
 ## Процесс работы
 
 ### Шаг 1: Разработка сценария теста
 
+**ВАЖНО: Этот шаг ОБЯЗАТЕЛЕН и должен выполняться ПЕРВЫМ!**
+
 Перед началом написания кода:
-1. Найди код, который нужно протестировать.
-2. Определи, что именно будет тестироваться. Это как правильно Rest Controller либо BackgroundTask, либо KafkaConsumerHost
-3. Разработай план теста с описанием:
+1. Создай todo list с задачами для всего процесса
+2. Найди код, который нужно протестировать
+3. Определи, что именно будет тестироваться (REST Controller / BackgroundTask / KafkaConsumerHost)
+4. Разработай план теста с описанием:
    - Что именно в приложении тестируется
    - Общий сценарий теста по пунктам
-   - Как ты будешь отправлять входные данные. Либо делать Http-запросы к API, либо продюсить в топик кафки для консюма, либо еще что-то.
+   - Как ты будешь отправлять входные данные (HTTP-запросы / Kafka топики / другой способ)
    - Какие результаты ожидаются и как ты будешь их проверять
-   - Какие именно зависимости из конфига appsettings ты будешь заменять тестконтейнерами ил wiremock сервером.
-4. **Предложи план пользователю и дождись подтверждения**
+   - Какие именно зависимости из конфига appsettings ты будешь заменять тестконтейнерами или WireMock сервером
+5. **Представь план пользователю в структурированном виде и дождись подтверждения**
 
 **Только после подтверждения плана приступай к реализации.**
 
@@ -221,40 +273,66 @@ public class MyIntegrationTests
 
 ### Написание тестов
 
-#### Критически важное правило: только публичный API
+#### ⚠️ КРИТИЧЕСКИ ВАЖНО: Только публичный API - ЗАПРЕТ на IServiceProvider
 
-**ЗАПРЕЩЕНО** использовать `IServiceProvider`!!!
+**ПОВТОРЯЕМ: СТРОГО ЗАПРЕЩЕНО использовать `IServiceProvider`, `GetRequiredService`, `GetService`!**
 
 ```csharp
-// ❌ НЕПРАВИЛЬНО - прямое использование сервисов
+// ❌❌❌ АБСОЛЮТНО НЕПРАВИЛЬНО - ЗАПРЕЩЕНО!
 var processor = _app.Services.GetRequiredService<ICustomerDataProcessor>();
 await processor.ProcessAsync(...);
+
+var consumer = _app.Services.GetRequiredService<IKafkaConsumer>();
+await consumer.ConsumeAsync(...);
+
+var repository = _app.Services.GetRequiredService<IRepository>();
+var data = await repository.GetAsync(...);
+
+// Даже для вспомогательных методов - НЕПРАВИЛЬНО!
+var helper = _app.Services.GetRequiredService<ITestHelper>();
 ```
 
-**Весь тест - это проверка публичного API приложения.** Приложение работает как черный ящик.
+**Весь тест - это проверка публичного API приложения. Приложение работает как черный ящик.**
 
-Если нужно проверить работу консюмера Kafka:
-- ✅ **ПРАВИЛЬНО**: Продюсь сообщения в нужный топик Kafka, дождись обработки, проверь результаты в выходных топиках или базах данных
-- ❌ **НЕПРАВИЛЬНО**: Получить консюмер через `GetRequiredService<IKafkaConsumer>()` и вызвать его напрямую
+**Правильные подходы:**
 
-Пример правильного подхода:
+1. **Для REST API:**
 ```csharp
+// ✅ ПРАВИЛЬНО - через HttpClient
+var client = _app.CreateClient();
+var response = await client.PostAsJsonAsync("/api/endpoint", requestData);
+response.StatusCode.Should().Be(HttpStatusCode.OK);
+```
+
+2. **Для Kafka консюмеров:**
+```csharp
+// ✅ ПРАВИЛЬНО - через публичный API (Kafka топики)
 //Arrange
 var inputMessages = GenerateTestMessages();
 
-    //Act - работаем только через публичный API (Kafka топики)
-    await _kafkaContainer.ProduceMessagesToTopicAsync("input-topic", inputMessages);
+//Act - работаем только через публичный API (Kafka топики)
+await _kafkaContainer.ProduceMessagesToTopicAsync("input-topic", inputMessages);
 
-    // Ждем, пока все сообщения будут обработаны
-    await _app.Services.WaitWhileTopicConsumedAsync(
-        KafkaCluster.MailingsRuntime,
-        new TopicName("input-topic"),
-        ConsumerGroups.SomeGroup);
+// Ждем, пока все сообщения будут обработаны (это вспомогательный метод, не получение сервиса!)
+await WaitForTopicConsumptionAsync("input-topic", ConsumerGroups.SomeGroup);
 
-    //Assert - проверяем результаты через публичный API (выходные топики, БД)
-    var outputMessages = _kafkaContainer.ConsumeMessages("output-topic", "test-consumer");
-    Assertions.AssertMessagesAreSentCorrectly(outputMessages, expectedMessages, messagesCount);
+//Assert - проверяем результаты через публичный API (выходные топики, БД)
+var outputMessages = _kafkaContainer.ConsumeMessages("output-topic", "test-consumer");
+Assertions.AssertMessagesAreSentCorrectly(outputMessages, expectedMessages, messagesCount);
 ```
+
+3. **Для BackgroundTask:**
+```csharp
+// ✅ ПРАВИЛЬНО - запуск через публичный API или входной канал
+// Если есть HTTP эндпоинт для запуска задачи:
+var client = _app.CreateClient();
+await client.PostAsync("/api/tasks/start", null);
+
+// Или через Kafka топик, который триггерит задачу:
+await _kafkaContainer.ProduceMessagesToTopicAsync("task-trigger-topic", triggerMessage);
+```
+
+**Если в коде теста есть `_app.Services.GetRequiredService` или `_app.Services.GetService` - это ОШИБКА! Исправь немедленно!**
 
 #### Структура теста
 
