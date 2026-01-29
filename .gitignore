@@ -17,13 +17,13 @@ extensions/
 # Chats (personal data)
 chats/
 
-# Excluded directories
-skills-cursor/
-plans/
-projects/
+# Excluded directories (recursive)
+**/skills-cursor/**
+**/plans/**
+**/projects/**
 
 # JSON configs from root directory
-argv.json
-cli-config.json
-mcp.json
-unified_repo_list.json
+/argv.json
+/cli-config.json
+/mcp.json
+/unified_repo_list.json
