@@ -1,12 +1,29 @@
-# Игнорируем всё по умолчанию
-*
+# Database files
+*.db
+*.db-shm
+*.db-wal
 
-# Но включаем папки со скиллами и конфигурационные файлы
-!.gitignore
-!.gitattributes
-!skills/
-!skills-cursor/
+# Logs
+*.log
 
-# Включаем всё внутри папок со скиллами
-!skills/**
-!skills-cursor/**
+# IDE state
+ide_state.json
+agent-cli-state.json
+prompt_history.json
+
+# Extensions (too large and not needed)
+extensions/
+
+# Chats (personal data)
+chats/
+
+# Project-specific data
+projects/*/mcp-cache.json
+projects/*/worker.log
+projects/*/agent-transcripts/
+projects/*/terminals/
+projects/*/mcps/
+
+# Temporary files
+*.tmp
+*.temp
