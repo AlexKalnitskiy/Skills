@@ -27,3 +27,6 @@ chats/
 /cli-config.json
 /mcp.json
 /unified_repo_list.json
+
+# Blocklist files
+blocklist*
